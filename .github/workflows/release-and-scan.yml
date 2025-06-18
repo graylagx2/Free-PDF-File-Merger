@@ -1,7 +1,6 @@
 name: Create Release and Scan with VirusTotal
 
 on:
-  # This allows you to run the workflow manually from the Actions tab
   workflow_dispatch:
     inputs:
       version:
@@ -12,6 +11,8 @@ on:
 jobs:
   build-scan-release:
     runs-on: windows-latest
+    permissions:
+      contents: write # This is correct and needed for creating the release
 
     steps:
       - name: 1. Checkout Repository
@@ -21,31 +22,28 @@ jobs:
         run: |
           pip install pyinstaller pypdf tkinterdnd2
           pyinstaller --onefile --windowed --name "PDF_Merger" --hidden-import=tkinterdnd2 --version-file "version_info.txt" pdf_merger.py
-        # Using the standard command because the GitHub runner environment is clean
 
-      - name: 3. Upload to VirusTotal and Get Report
-        id: vt-scan # Give this step an ID so we can reference its output
-        uses: virustotal/vt-cli-action@v1
+      - name: 3. Scan with VirusTotal using a new, reliable action
+        id: vt-scan # We still need the ID to get the output
+        uses: crazy-max/ghaction-virustotal@v5 # <-- THE NEW, WORKING ACTION
         with:
-          vt-api-key: ${{ secrets.VT_API_KEY }}
-          vt-args: "scan file dist/PDF_Merger.exe"
+          vt_api_key: ${{ secrets.VT_API_KEY }} # Note the input name is slightly different
+          files: |
+            dist/PDF_Merger.exe
 
       - name: 4. Create GitHub Release with Scan Report
         uses: softprops/action-gh-release@v2
         with:
-          # Use the version you entered when running the workflow
           tag_name: ${{ github.event.inputs.version }}
           name: Release ${{ github.event.inputs.version }}
-          # This is the body of the release notes
           body: |
             ## PDF Merger Release ${{ github.event.inputs.version }}
 
             This is an automated release. The executable has been scanned for viruses.
 
             **VirusTotal Security Report:**
-            [View Scan Results](${{ steps.vt-scan.outputs.analysis_url }})
+            [View Scan Results](${{ fromJson(steps.vt-scan.outputs.results)[0].permalink }})
 
-            *Please review the report before downloading.*
-          # The files to attach to the release
+            *Please review the report before downloading. The report is based on the file's unique hash.*
           files: |
             dist/PDF_Merger.exe
