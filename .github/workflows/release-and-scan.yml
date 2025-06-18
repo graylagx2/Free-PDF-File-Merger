@@ -25,7 +25,7 @@ jobs:
 
       - name: 3. Upload to VirusTotal and Get Report
         id: vt-scan # Give this step an ID so we can reference its output
-        uses: virustotal/vt-cli-action@v2
+        uses: virustotal/vt-cli-action@v1
         with:
           vt-api-key: ${{ secrets.VT_API_KEY }}
           vt-args: "scan file dist/PDF_Merger.exe"
