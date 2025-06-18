@@ -24,10 +24,10 @@ jobs:
           pyinstaller --onefile --windowed --name "PDF_Merger" --hidden-import=tkinterdnd2 --version-file "version_info.txt" pdf_merger.py
 
       - name: 3. Scan with VirusTotal using a new, reliable action
-        id: vt-scan # We still need the ID to get the output
-        uses: crazy-max/ghaction-virustotal@v5 # <-- THE NEW, WORKING ACTION
+        id: vt-scan
+        uses: crazy-max/ghaction-virustotal@v4 # <-- THE VERSION IS NOW CORRECT
         with:
-          vt_api_key: ${{ secrets.VT_API_KEY }} # Note the input name is slightly different
+          vt_api_key: ${{ secrets.VT_API_KEY }}
           files: |
             dist/PDF_Merger.exe
 
