@@ -12,26 +12,42 @@ jobs:
   build-scan-release:
     runs-on: windows-latest
     permissions:
-      contents: write # This is correct and needed for creating the release
+      contents: write
 
     steps:
       - name: 1. Checkout Repository
         uses: actions/checkout@v4
 
-      - name: 2. Build the Executable
-        run: |
-          pip install pyinstaller pypdf tkinterdnd2
-          pyinstaller --onefile --windowed --name "PDF_Merger" --hidden-import=tkinterdnd2 --version-file "version_info.txt" pdf_merger.py
+      - name: 2. Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-      - name: 3. Scan with VirusTotal using a new, reliable action
+      - name: 3. Install Dependencies
+        run: pip install pyinstaller pypdf tkinterdnd2
+
+      - name: 4. Build the Executable
+        run: pyinstaller --onefile --windowed --name "PDF_Merger" --hidden-import=tkinterdnd2 --version-file "version_info.txt" pdf_merger.py
+
+      - name: 5. Scan with VirusTotal
         id: vt-scan
-        uses: crazy-max/ghaction-virustotal@v4 # <-- THE VERSION IS NOW CORRECT
+        uses: crazy-max/ghaction-virustotal@v4
         with:
           vt_api_key: ${{ secrets.VT_API_KEY }}
           files: |
             dist/PDF_Merger.exe
 
-      - name: 4. Create GitHub Release with Scan Report
+      # NEW STEP TO FIX THE JSON PARSING ERROR
+      - name: 6. Extract VirusTotal URL
+        id: extract_url
+        shell: pwsh
+        run: |
+          $resultsJson = '${{ steps.vt-scan.outputs.results }}'
+          $results = $resultsJson | ConvertFrom-Json
+          $permalink = $results[0].permalink
+          echo "permalink=$permalink" >> $env:GITHUB_OUTPUT
+
+      - name: 7. Create GitHub Release with Scan Report
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.version }}
@@ -42,7 +58,7 @@ jobs:
             This is an automated release. The executable has been scanned for viruses.
 
             **VirusTotal Security Report:**
-            [View Scan Results](${{ fromJson(steps.vt-scan.outputs.results)[0].permalink }})
+            [View Scan Results](${{ steps.extract_url.outputs.permalink }})
 
             *Please review the report before downloading. The report is based on the file's unique hash.*
           files: |
